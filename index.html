@@ -1,0 +1,1435 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Private Class Management System</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --primary: #3060f3;
+    --primary-dark: #2451d3;
+    --primary-darker: #1e40af;
+    --primary-light: rgba(48, 96, 243, 0.1);
+    --primary-50: #eef2ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f5f6fa;
+    color: #2d3748;
+    line-height: 1.5;
+  }
+  header {
+    background: linear-gradient(135deg, #3060f3 0%, #1e40af 100%);
+    color: #fff;
+    padding: 22px 32px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  }
+  header h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; }
+  header p { font-size: 13px; opacity: .85; margin-top: 4px; }
+  .header-row { display:flex; justify-content:space-between; align-items:center; gap:14px; }
+  .conn-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 7px 14px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    background: rgba(255,255,255,.18); color: #fff;
+    border: 1px solid rgba(255,255,255,.3);
+    transition: background .15s;
+  }
+  .conn-badge:hover { background: rgba(255,255,255,.28); }
+  .conn-badge .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #ef4444;
+  }
+  .conn-badge.online .dot { background: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,.3); }
+  .role-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    background: rgba(255,255,255,.2); color: #fff;
+    margin-left: 8px;
+  }
+  nav.tabs {
+    background: #fff;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    padding: 0 32px;
+    overflow-x: auto;
+  }
+  nav.tabs button {
+    background: none;
+    border: none;
+    padding: 16px 22px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #6b7280;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  nav.tabs button:hover { color: var(--primary); }
+  nav.tabs button.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+  main { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* KPI cards */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 18px;
+    margin-bottom: 28px;
+  }
+  .kpi {
+    background: #fff;
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px;
+    height: 100%;
+    background: var(--primary);
+  }
+  .kpi .label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+  .kpi .value { font-size: 32px; font-weight: 700; color: #1f2937; margin-top: 8px; }
+  .kpi .sub { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+  .kpi.primary::before { background: var(--primary); }
+  .kpi.primary .value { color: var(--primary); }
+  .kpi.green::before { background: #10b981; }
+  .kpi.green .value { color: #10b981; }
+  .kpi.orange::before { background: #f59e0b; }
+  .kpi.orange .value { color: #f59e0b; }
+  .kpi.purple::before { background: #8b5cf6; }
+  .kpi.purple .value { color: #8b5cf6; }
+
+  /* Section */
+  .section {
+    background: #fff;
+    padding: 22px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 22px;
+  }
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .section-title { font-size: 16px; font-weight: 700; color: #1f2937; }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  input, select, textarea {
+    padding: 9px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    background: #fff;
+    color: #1f2937;
+    transition: border-color .15s;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-light);
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 6px;
+  }
+  button.btn {
+    padding: 9px 16px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+    font-family: inherit;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-secondary { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+  .btn-secondary:hover { background: #e5e7eb; }
+  .btn-danger { background: #fee2e2; color: #b91c1c; }
+  .btn-danger:hover { background: #fecaca; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid #e5e7eb; }
+  table { width: 100%; border-collapse: collapse; background: #fff; font-size: 13px; }
+  thead { background: #f9fafb; }
+  th {
+    text-align: left;
+    padding: 11px 12px;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+  }
+  td {
+    padding: 11px 12px;
+    border-bottom: 1px solid #f3f4f6;
+    color: #1f2937;
+    vertical-align: middle;
+  }
+  tbody tr:hover { background: var(--primary-50); }
+  td.actions { white-space: nowrap; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: #6b7280; }
+
+  /* Status badge */
+  .badge {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: capitalize;
+    white-space: nowrap;
+  }
+  .badge-hot { background: #fee2e2; color: #b91c1c; }
+  .badge-warm { background: #fef3c7; color: #b45309; }
+  .badge-cold { background: #e0e7ff; color: #3730a3; }
+  .badge-no { background: #f3f4f6; color: #6b7280; }
+  .badge-goal { background: #d1fae5; color: #065f46; }
+  .badge-lunas { background: #d1fae5; color: #065f46; }
+  .badge-inst { background: #fef3c7; color: #b45309; }
+  .badge-reenroll { background: #d1fae5; color: #065f46; }
+  .badge-noreenroll { background: #fee2e2; color: #b91c1c; }
+  .badge-ongoing { background: var(--primary-light); color: var(--primary-darker); }
+  .badge-done { background: #d1fae5; color: #065f46; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(17,24,39,.5);
+    z-index: 50;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 20px;
+    overflow-y: auto;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 14px;
+    padding: 26px;
+    max-width: 720px;
+    width: 100%;
+    box-shadow: 0 20px 40px rgba(0,0,0,.15);
+  }
+  .modal h2 { font-size: 18px; margin-bottom: 6px; }
+  .modal .sub { font-size: 13px; color: #6b7280; margin-bottom: 18px; }
+  .form-group-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin: 18px 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--primary-light);
+  }
+  .form-group-title:first-of-type { margin-top: 0; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+  .form-grid .full { grid-column: 1 / -1; }
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid #e5e7eb;
+  }
+
+  /* Status breakdown */
+  .breakdown {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  .breakdown-item {
+    padding: 14px;
+    border-radius: 10px;
+    text-align: center;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+  }
+  .breakdown-item .count { font-size: 24px; font-weight: 700; }
+  .breakdown-item .label { font-size: 12px; color: #6b7280; margin-top: 4px; text-transform: capitalize; }
+
+  .empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #9ca3af;
+    font-size: 14px;
+  }
+  .hint { font-size: 12px; color: #6b7280; margin-top: 6px; }
+  .info-box {
+    background: var(--primary-50);
+    border-left: 3px solid var(--primary);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--primary-darker);
+    margin-bottom: 14px;
+  }
+
+  @media (max-width: 700px) {
+    main { padding: 18px; }
+    header { padding: 18px 18px; }
+    nav.tabs { padding: 0 8px; }
+    nav.tabs button { padding: 14px 12px; font-size: 13px; }
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-row">
+    <div>
+      <h1>Private Class Management System<span id="rolePill" class="role-pill" style="display:none;"></span></h1>
+      <p>Track prospects, students, and reenrollments</p>
+    </div>
+    <div>
+      <button id="connBadge" class="conn-badge" onclick="openSettings()">
+        <span class="dot"></span>
+        <span id="connText">Offline (local only)</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="admin-dash">Admin Dashboard</button>
+  <button class="tab-btn" data-tab="admin-db">Admin Database</button>
+  <button class="tab-btn" data-tab="ta-dash">TA Dashboard</button>
+  <button class="tab-btn" data-tab="ta-db">TA Database</button>
+</nav>
+
+<main>
+
+  <!-- ===================== ADMIN DASHBOARD ===================== -->
+  <section id="admin-dash" class="view active">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Admin Dashboard</div>
+        <div>
+          <label for="adminMonth" style="display:inline-block; margin-right:8px;">Filter Bulan:</label>
+          <input type="month" id="adminMonth" />
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi green">
+          <div class="label">Total Murid Goal</div>
+          <div class="value" id="kpiGoal">0</div>
+          <div class="sub">Prospek yang jadi murid bulan ini</div>
+        </div>
+        <div class="kpi primary">
+          <div class="label">Masuk Private Class</div>
+          <div class="value" id="kpiPvt">0</div>
+          <div class="sub">Starting date di bulan ini</div>
+        </div>
+        <div class="kpi purple">
+          <div class="label">Total Contact Nanya Kelas</div>
+          <div class="value" id="kpiContact">0</div>
+          <div class="sub">Date chat di bulan ini</div>
+        </div>
+        <div class="kpi orange">
+          <div class="label">Conversion Rate</div>
+          <div class="value" id="kpiConv">0%</div>
+          <div class="sub">Goal / total contact</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title" style="margin-bottom:14px;">Status Breakdown (Contact bulan ini)</div>
+      <div class="breakdown" id="statusBreakdown"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title" style="margin-bottom:14px;">Payment Status (Murid bulan ini)</div>
+      <div class="breakdown" id="paymentBreakdown"></div>
+    </div>
+  </section>
+
+  <!-- ===================== ADMIN DATABASE ===================== -->
+  <section id="admin-db" class="view">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Database Murid & Prospek</div>
+        <div>
+          <button class="btn btn-secondary" onclick="exportCSV()">Export CSV</button>
+          <button class="btn btn-primary" onclick="openModal()">+ Tambah Baru</button>
+        </div>
+      </div>
+
+      <div class="controls">
+        <input type="text" id="searchInput" placeholder="Cari nama, WA, atau student #..." style="flex:1; min-width:200px;" oninput="renderAdminTable()" />
+        <select id="filterStatus" onchange="renderAdminTable()">
+          <option value="">Semua Prospek Status</option>
+          <option value="hot prospect">Hot Prospect</option>
+          <option value="warm prospect">Warm Prospect</option>
+          <option value="cold prospect">Cold Prospect</option>
+          <option value="no">No</option>
+          <option value="goal">Goal</option>
+        </select>
+        <select id="filterClassStatus" onchange="renderAdminTable()">
+          <option value="">Semua Class Status</option>
+          <option value="On going">On going</option>
+          <option value="Done">Done</option>
+        </select>
+        <select id="filterPayment" onchange="renderAdminTable()">
+          <option value="">Semua Payment</option>
+          <option value="lunas">Lunas</option>
+          <option value="instalment 1">Instalment 1</option>
+          <option value="instalment 2">Instalment 2</option>
+          <option value="instalment 3">Instalment 3</option>
+        </select>
+        <select id="filterTeacher" onchange="renderAdminTable()">
+          <option value="">Semua Teacher</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Student #</th>
+              <th>Name</th>
+              <th>WA</th>
+              <th>Program</th>
+              <th>Teacher</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Class Status</th>
+              <th>Payment</th>
+              <th>Prospek</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="adminTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== TA DASHBOARD ===================== -->
+  <section id="ta-dash" class="view">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Teaching Assistant Dashboard</div>
+        <div>
+          <label for="taMonth" style="display:inline-block; margin-right:8px;">Filter Bulan:</label>
+          <input type="month" id="taMonth" />
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi green">
+          <div class="label">Total Reenrolled</div>
+          <div class="value" id="kpiReenroll">0</div>
+          <div class="sub">Murid reenroll bulan ini (by end date)</div>
+        </div>
+        <div class="kpi orange">
+          <div class="label">Not Reenrolled</div>
+          <div class="value" id="kpiNoReenroll">0</div>
+          <div class="sub">Selesai tapi tidak reenroll</div>
+        </div>
+        <div class="kpi primary">
+          <div class="label">Reenroll Rate</div>
+          <div class="value" id="kpiReenrollRate">0%</div>
+          <div class="sub">Dari yang selesai bulan ini</div>
+        </div>
+        <div class="kpi purple">
+          <div class="label">Active Students</div>
+          <div class="value" id="kpiActive">0</div>
+          <div class="sub">Class status On going</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title" style="margin-bottom:14px;">Upcoming Post Tests (30 hari ke depan)</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Program</th>
+              <th>Teacher</th>
+              <th>Post Test</th>
+              <th>Tanggal</th>
+              <th>End Date</th>
+            </tr>
+          </thead>
+          <tbody id="upcomingTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== TA DATABASE ===================== -->
+  <section id="ta-db" class="view">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">TA - Manage Class Records</div>
+      </div>
+      <div class="info-box">Data dasar dari Admin (read-only). TA mengisi: Placement Test, Post Test 1/2/3, Class Report, dan Reenroll Status.</div>
+
+      <div class="controls">
+        <input type="text" id="taSearchInput" placeholder="Cari nama..." style="flex:1; min-width:200px;" oninput="renderTaTable()" />
+        <select id="taFilterReenroll" onchange="renderTaTable()">
+          <option value="">Semua Reenroll</option>
+          <option value="reenrolled">Reenrolled</option>
+          <option value="no">No</option>
+          <option value="__blank">Belum Diisi</option>
+        </select>
+        <select id="taFilterClassStatus" onchange="renderTaTable()">
+          <option value="">Semua Class</option>
+          <option value="On going">On going</option>
+          <option value="Done">Done</option>
+        </select>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Program</th>
+              <th>Teacher</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Placement</th>
+              <th>PT 1</th>
+              <th>PT 2</th>
+              <th>PT 3</th>
+              <th>Reenroll</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="taTbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===================== ADMIN MODAL ===================== -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2 id="modalTitle">Tambah Murid / Prospek</h2>
+    <p class="sub">Lengkapi info kontak, kelas, dan pembayaran.</p>
+    <input type="hidden" id="f_id" />
+
+    <div class="form-group-title">Kontak & Prospek</div>
+    <div class="form-grid">
+      <div>
+        <label>Name *</label>
+        <input type="text" id="f_name" placeholder="Nama lengkap" />
+      </div>
+      <div>
+        <label>WA Number *</label>
+        <input type="text" id="f_wa" placeholder="08xxxx" />
+      </div>
+      <div>
+        <label>Date Chat *</label>
+        <input type="date" id="f_dateChat" />
+      </div>
+      <div>
+        <label>Prospek Status</label>
+        <select id="f_status">
+          <option value="hot prospect">Hot Prospect</option>
+          <option value="warm prospect">Warm Prospect</option>
+          <option value="cold prospect">Cold Prospect</option>
+          <option value="no">No</option>
+          <option value="goal">Goal</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group-title">Detail Kelas</div>
+    <div class="form-grid">
+      <div>
+        <label>Student Number</label>
+        <input type="text" id="f_studentNumber" placeholder="PVT-S-2026-001" />
+      </div>
+      <div>
+        <label>Program / Class Type</label>
+        <input type="text" id="f_classType" placeholder="e.g. 20HRS - PVT - S" />
+      </div>
+      <div>
+        <label>Teacher</label>
+        <input type="text" id="f_teacher" placeholder="Nama guru" />
+      </div>
+      <div>
+        <label>Class Status</label>
+        <select id="f_classStatus">
+          <option value="">-</option>
+          <option value="On going">On going</option>
+          <option value="Done">Done</option>
+        </select>
+      </div>
+      <div>
+        <label>Starting Date</label>
+        <input type="date" id="f_start" />
+      </div>
+      <div>
+        <label>End Date</label>
+        <input type="date" id="f_end" />
+      </div>
+    </div>
+
+    <div class="form-group-title">Pembayaran</div>
+    <div class="form-grid">
+      <div>
+        <label>Payment Type</label>
+        <select id="f_paymentType">
+          <option value="">-</option>
+          <option value="Full payment">Full payment</option>
+          <option value="Installment">Installment</option>
+        </select>
+      </div>
+      <div>
+        <label>Payment Status</label>
+        <select id="f_payment">
+          <option value="">- Belum -</option>
+          <option value="lunas">Lunas</option>
+          <option value="instalment 1">Instalment 1</option>
+          <option value="instalment 2">Instalment 2</option>
+          <option value="instalment 3">Instalment 3</option>
+        </select>
+      </div>
+      <div>
+        <label>Amount</label>
+        <input type="text" id="f_amount" placeholder="Rp 1.000.000" />
+      </div>
+      <div></div>
+      <div class="full">
+        <label>Notes</label>
+        <textarea id="f_notes" rows="2" style="width:100%;" placeholder="Catatan internal..."></textarea>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveStudent()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== SETTINGS MODAL ===================== -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal">
+    <h2>Connection Settings</h2>
+    <p class="sub">Connect ke Supabase supaya Admin & TA bisa lihat data yang sama (real-time sync).</p>
+
+    <div class="form-group-title">Identitas (untuk catatan)</div>
+    <div class="form-grid">
+      <div>
+        <label>Saya adalah</label>
+        <select id="set_role">
+          <option value="">- Pilih -</option>
+          <option value="Admin">Admin</option>
+          <option value="TA">Teaching Assistant</option>
+        </select>
+      </div>
+      <div>
+        <label>Nama (opsional)</label>
+        <input type="text" id="set_userName" placeholder="Sheren / nama TA" />
+      </div>
+    </div>
+
+    <div class="form-group-title">Supabase Credentials</div>
+    <div class="info-box">
+      <strong>Cara dapet info ini:</strong><br>
+      1. Sign up gratis di <a href="https://supabase.com" target="_blank" style="color:var(--primary-darker); text-decoration:underline;">supabase.com</a><br>
+      2. Buat New Project (gratis, ~2 menit setup)<br>
+      3. Di sidebar → <strong>SQL Editor</strong> → paste isi file <code>supabase-setup.sql</code> → Run<br>
+      4. Di sidebar → <strong>Settings → API</strong> → copy <em>Project URL</em> &amp; <em>anon public key</em> ke bawah ini
+    </div>
+    <div class="form-grid">
+      <div class="full">
+        <label>Project URL</label>
+        <input type="text" id="set_url" placeholder="https://xxxxx.supabase.co" />
+      </div>
+      <div class="full">
+        <label>Anon Public Key</label>
+        <input type="text" id="set_key" placeholder="eyJhbGc..." />
+      </div>
+    </div>
+
+    <div style="margin-top:16px; padding:12px; background:#fef3c7; border-radius:8px; border-left:3px solid #f59e0b; font-size:13px; color:#92400e;">
+      <strong>Penting:</strong> Share URL &amp; Key yang sama ke TA. Mereka paste di Settings juga supaya konek ke database yang sama.
+    </div>
+
+    <div class="modal-actions" style="justify-content:space-between;">
+      <button class="btn btn-secondary" onclick="seedSupabase()" id="seedBtn" style="display:none;">Load Sample (46 students)</button>
+      <div>
+        <button class="btn btn-secondary" onclick="closeSettings()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveSettings()">Save &amp; Connect</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== TA MODAL ===================== -->
+<div class="modal-overlay" id="taModal">
+  <div class="modal">
+    <h2>Update Class Record</h2>
+    <p class="sub">Isi data tes dan reenroll status.</p>
+    <input type="hidden" id="ta_id" />
+    <div style="background:#f9fafb; padding:14px; border-radius:8px; margin-bottom:6px;">
+      <div style="font-weight:600; font-size:15px;" id="ta_name"></div>
+      <div style="font-size:13px; color:#6b7280; margin-top:4px;" id="ta_meta"></div>
+    </div>
+
+    <div class="form-group-title">Tests</div>
+    <div class="form-grid">
+      <div>
+        <label>Placement Test</label>
+        <input type="date" id="ta_placementTest" />
+      </div>
+      <div></div>
+      <div>
+        <label>Post Test 1</label>
+        <input type="date" id="ta_postTest1" />
+      </div>
+      <div>
+        <label>Post Test 2</label>
+        <input type="date" id="ta_postTest2" />
+      </div>
+      <div>
+        <label>Post Test 3</label>
+        <input type="date" id="ta_postTest3" />
+      </div>
+      <div></div>
+    </div>
+
+    <div class="form-group-title">Reenroll & Report</div>
+    <div class="form-grid">
+      <div>
+        <label>Reenroll Status</label>
+        <select id="ta_reenroll">
+          <option value="">- Belum -</option>
+          <option value="reenrolled">Reenrolled</option>
+          <option value="no">No</option>
+        </select>
+      </div>
+      <div></div>
+      <div class="full">
+        <label>Class Report</label>
+        <textarea id="ta_report" rows="4" style="width:100%; resize:vertical;" placeholder="Catatan progress, hasil, feedback..."></textarea>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeTaModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTa()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================== SEED DATA ===================== */
+const SEED = [
+  { studentNumber:'PVT-S-2026-001', name:'Keasy Rismauly', wa:'882017156680', classType:'20HRS - PVT - S', teacher:'Ms. Sheren', start:'2026-01-10', end:'2026-03-14', classStatus:'Done', paymentType:'Full payment', payment:'lunas', amount:'Rp 3.240.000' },
+  { studentNumber:'PVT-S-2026-002', name:'Joshua Gerant', wa:'87825258400', classType:'20HRS - PVT - T', teacher:'Ms. Nala', start:'2025-12-17', end:'2026-01-08', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 2.350.000' },
+  { studentNumber:'PVT-S-2026-003', name:'I Gede Surya', wa:'81236322023', classType:'7HRS-PVTBOOST-S', teacher:'Ms. Sheren', start:'2025-12-17', end:'2026-01-07', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 798.000' },
+  { studentNumber:'PVT-S-2026-004', name:'Jessica', wa:'81291050282', classType:'10HRS - PVT - S', teacher:'Ms. Sheren', start:'2026-01-05', end:'2026-01-16', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 1.950.000' },
+  { studentNumber:'PVT-S-2026-005', name:'Karlina Sagita', wa:'85776335836', classType:'7HRS-PVTBOOST-S', teacher:'Ms. Sheren', start:'2025-12-18', end:'2026-01-07', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 798.000' },
+  { studentNumber:'PVT-S-2026-006', name:'Ardhia Putri', wa:'81368404158', classType:'40HRS - PVT - S', teacher:'Ms. Sheren', start:'2026-01-05', end:'2026-03-16', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 4.920.000' },
+  { studentNumber:'PVT-S-2026-007', name:'Amelia Pinkan', wa:'8111681959', classType:'20HRS - PVT - S', teacher:'Ms. Sheren', start:'2026-01-08', end:'2026-03-05', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 3.240.000' },
+  { studentNumber:'PVT-S-2026-008', name:'Syfa', wa:'82295108486', classType:'10HRS - PVT - T', teacher:'Ms. Nala', start:'2026-01-10', end:'2026-01-31', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 1.250.000' },
+  { studentNumber:'PVT-S-2026-009', name:'Sari Seftiani', wa:'87789176860', classType:'20HRS - PVT - T', teacher:'Ms. Adila', start:'2026-01-02', end:'2026-01-23', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 2.350.000' },
+  { studentNumber:'PVT-S-2026-010', name:'Aryatama Respati', wa:'8158870397', classType:'40HRS - PVT - S', teacher:'Ms. Sheren', start:'2026-01-06', end:'2026-03-21', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 4.920.000' },
+  { studentNumber:'PVT-S-2026-011', name:'Ariana Aisa', wa:'81215282502', classType:'7HRS-PVTBOOST-S', teacher:'Ms. Sheren', start:'2026-01-07', end:'2026-01-30', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 798.000' },
+  { studentNumber:'PVT-S-2026-012', name:'Sasti (2x booster)', wa:'8119749730', classType:'7HRS-PVTBOOST-T', teacher:'Ms. Adila', start:'2026-01-18', end:'', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 1.350.000' },
+  { studentNumber:'PVT-S-2026-013', name:'Erna', wa:'85722012349', classType:'10HRS - PVT - T', teacher:'Ms. Nala', start:'2026-01-06', end:'2026-02-13', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 1.250.000' },
+  { studentNumber:'PVT-S-2026-014', name:'Natalie', wa:'8112998001', classType:'40HRS - PVT - S', teacher:'Ms. Sheren', start:'', end:'', classStatus:'On going', paymentType:'Installment', payment:'instalment 1', amount:'Rp 4.920.000' },
+  { studentNumber:'PVT-S-2026-015', name:'Husni (4x booster)', wa:'81338338833', classType:'7HRS-PVTBOOST-T', teacher:'Ms. Adila', start:'', end:'', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 2.700.000' },
+  { studentNumber:'PVT-S-2026-016', name:'Aulia Rizka (2x booster)', wa:'82124979991', classType:'7HRS-PVTBOOST-T', teacher:'Ms. Adila', start:'2026-01-17', end:'', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 1.350.000' },
+  { studentNumber:'PVT-S-2026-017', name:'Dina (re: Ms. Sheren)', wa:'81297493332', classType:'40HRS - PVT - S', teacher:'Ms. Sheren', start:'', end:'', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 4.920.000' },
+  { studentNumber:'PVT-S-2026-018', name:'Wulan', wa:'81262348833', classType:'10HRS - PVT - S', teacher:'Ms. Sheren', start:'2026-02-04', end:'2026-02-25', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 1.950.000' },
+  { studentNumber:'PVT-S-2026-019', name:'Giscka Aprilia', wa:'818741797', classType:'7HRS-PVTBOOST-T', teacher:'Ms. Nala', start:'2026-01-20', end:'2026-01-28', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 675.000' },
+  { studentNumber:'PVT-S-2026-020', name:'Anastasia Olivia', wa:'81315198181', classType:'20HRS - PVT - S', teacher:'Ms. Sheren', start:'2026-02-23', end:'2026-03-28', classStatus:'On going', paymentType:'Installment', payment:'instalment 1', amount:'Rp 3.240.000' },
+  { studentNumber:'PVT-S-2026-021', name:'Ayuko', wa:'87784203150', classType:'7HRS-PVTBOOST-T', teacher:'Ms. Nala', start:'2026-01-28', end:'2026-02-11', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 675.000' },
+  { studentNumber:'PVT-S-2026-022', name:'Aualia Fiqhi (re: ms. adilla)', wa:'85186813394', classType:'7HRS-PVTBOOST-T', teacher:'Ms. Adila', start:'2026-02-07', end:'2026-02-28', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 675.000' },
+  { studentNumber:'PVT-S-2026-023', name:'Firsta Tiara', wa:'81228105665', classType:'7HRS-PVTBOOST-T', teacher:'Ms. Zayn', start:'2026-02-03', end:'2026-02-11', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 675.000' },
+  { studentNumber:'PVT-S-2026-024', name:'Heni', wa:'81352209778', classType:'7HRS-PVTBOOST-S', teacher:'Ms. Sheren', start:'', end:'', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 775.000' },
+  { studentNumber:'PVT-S-2026-025', name:'Novrida', wa:'85297979842', classType:'7HRS-PVTBOOST-T', teacher:'Ms. Adila', start:'', end:'', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 775.000' },
+  { studentNumber:'PVT-S-2026-026', name:'Christin', wa:'81297760777', classType:'20HRS - PVT - T', teacher:'Ms. Adila', start:'2026-02-14', end:'2026-04-26', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 898.000' },
+  { studentNumber:'PVT-S-2026-027', name:'Yunita Ekawati', wa:'82301321033', classType:'20HRS - PVT - S', teacher:'Ms. Sheren', start:'2026-03-03', end:'2026-04-24', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 2.070.000' },
+  { studentNumber:'PVT-S-2026-028', name:'Lintang', wa:'895335966229', classType:'20HRS - PVT - T', teacher:'Ms. Adila', start:'2026-02-16', end:'2026-03-15', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 3.240.000' },
+  { studentNumber:'PVT-S-2026-029', name:'Syaima', wa:'82187104742', classType:'10HRS - PVT - S', teacher:'Ms. Sheren', start:'2026-02-26', end:'2026-04-09', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 2.200.000' },
+  { studentNumber:'PVT-S-2026-030', name:'Sari Seftiani', wa:'87789176860', classType:'10HRS - PVT - T', teacher:'Ms. Adila', start:'', end:'', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 1.850.000' },
+  { studentNumber:'PVT-S-2026-031', name:'Anthony (re: Ms. Nala)', wa:'61480762707', classType:'20HRS - PVT - S', teacher:'Ms. Sheren', start:'', end:'', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 1.275.000' },
+  { studentNumber:'PVT-S-2026-032', name:'Aualia Fiqhi', wa:'85186813394', classType:'20HRS - PVT - T', teacher:'Ms. Adila', start:'', end:'', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 3.140.000' },
+  { studentNumber:'PVT-S-2026-033', name:'Wulandari', wa:'85715915836', classType:'20HRS - PVT - T', teacher:'', start:'2026-02-06', end:'', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 2.200.000' },
+  { studentNumber:'PVT-S-2026-034', name:'Maria Roslina', wa:'85932982105', classType:'7HRS-PVTBOOST-S', teacher:'Ms. Sheren', start:'2026-02-26', end:'2026-03-12', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 898.000' },
+  { studentNumber:'PVT-S-2026-035', name:'Muhammad Robani', wa:'88985081588', classType:'7HRS-PVTBOOST-T', teacher:'Ms. Adila', start:'2026-03-03', end:'', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 2.200.000' },
+  { studentNumber:'PVT-S-2026-036', name:'Aulia Rizka', wa:'82124979991', classType:'7HRS-PVTBOOST-T', teacher:'', start:'', end:'', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 675.000' },
+  { studentNumber:'PVT-T-2026-037', name:'Yeni', wa:'81320992383', classType:'10HRS - PVT - T', teacher:'Ms. Nala', start:'2026-03-18', end:'2026-04-15', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 1.350.000' },
+  { studentNumber:'PVT-BSC-2026-038', name:'Raynissa Sameyra', wa:'85280297528', classType:'PVT-10HRS-BSC', teacher:'Ms. Lucia', start:'2026-03-22', end:'', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 2.299.000' },
+  { studentNumber:'PVT-BSC-2026-039', name:'Destawardiani', wa:'89677004847', classType:'PVT-10HRS-BSC', teacher:'Ms. Adila', start:'2026-04-13', end:'2026-05-04', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 2.499.000' },
+  { studentNumber:'PVT-EXC-2026-040', name:'Rizky Faisal', wa:'82320512713', classType:'PVT-5HRS-EXP', teacher:'', start:'2026-04-09', end:'2026-04-20', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 998.000' },
+  { studentNumber:'PVT-INC-2026-041', name:'Nabila', wa:'895396841936', classType:'PVT-20HRS-ITS', teacher:'Ms. Nala', start:'2026-04-14', end:'2026-06-02', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 4.199.000' },
+  { studentNumber:'PVT-BSC-2026-042', name:'Intan', wa:'85848408428', classType:'PVT-10HRS-BSC', teacher:'', start:'2026-04-24', end:'2026-05-16', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 2.499.000' },
+  { studentNumber:'PVT-BSC-2026-043', name:'Banyu', wa:'81329002905', classType:'PVT-10HRS-BSC', teacher:'Ms. Nala', start:'2026-04-17', end:'2026-04-27', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 2.499.000' },
+  { studentNumber:'PVT-EXC-2026-044', name:'Sufie', wa:'61416987887', classType:'PVT-5HRS-EXP', teacher:'Ms. Sheren', start:'2026-04-21', end:'2026-05-13', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 998.000' },
+  { studentNumber:'PVT-BSC-2026-045', name:'Fadilla', wa:'82242212840', classType:'PVT-10HRS-BSC', teacher:'Ms. Nala', start:'', end:'', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 2.499.000' },
+  { studentNumber:'PVT-INC-2026-046', name:'Ita', wa:'81386073875', classType:'PVT-20HRS-ITS', teacher:'Ms. Lucia', start:'2026-04-29', end:'', classStatus:'On going', paymentType:'Full payment', payment:'lunas', amount:'Rp 4.199.000' },
+];
+
+/* ============================================================
+   EMBEDDED CREDENTIALS — isi sekali doang sebelum deploy
+   ============================================================
+   Cara: ganti string "PASTE_..." di bawah dengan URL & Key Supabase kamu.
+   Setelah ini di-isi, Daniel & Helen nggak perlu setup apa2 — tinggal klik link.
+*/
+const EMBEDDED_SUPABASE_URL = "https://rphyhxgqaalgtlurwxff.supabase.co";
+const EMBEDDED_SUPABASE_KEY = "sb_publishable_SSNgz1JTwwunDLYWFv8R0g_u2qjGosd";
+/* ============================================================ */
+
+/* ===================== DATA LAYER (SUPABASE + LOCAL FALLBACK) ===================== */
+const STORAGE_KEY = 'pvtClassData_v2';
+const SETTINGS_KEY = 'pvtClassSettings_v1';
+let students = [];
+let sbClient = null;
+let sbChannel = null;
+let isOnline = false;
+let userRole = '';
+let userName = '';
+
+function buildSeed() {
+  return SEED.map((s, i) => ({
+    id: 's_seed_' + String(i+1).padStart(3,'0'),
+    status: 'goal',
+    dateChat: s.start || '',
+    notes: '',
+    placementTest: '',
+    postTest1: '', postTest2: '', postTest3: '',
+    report: '',
+    reenroll: '',
+    ...s
+  }));
+}
+
+function loadSettings() {
+  // Priority: URL params > localStorage > embedded defaults
+  const urlParams = new URLSearchParams(window.location.search);
+  const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+
+  const merged = {
+    role: urlParams.get('role') || stored.role || '',
+    userName: urlParams.get('name') || stored.userName || '',
+    url: stored.url || (EMBEDDED_SUPABASE_URL.startsWith('PASTE_') ? '' : EMBEDDED_SUPABASE_URL),
+    key: stored.key || (EMBEDDED_SUPABASE_KEY.startsWith('PASTE_') ? '' : EMBEDDED_SUPABASE_KEY),
+  };
+
+  // Normalize role from URL (admin/ta -> Admin/TA)
+  if (merged.role) {
+    const r = merged.role.toLowerCase();
+    if (r === 'admin') merged.role = 'Admin';
+    else if (r === 'ta' || r === 'teaching assistant') merged.role = 'TA';
+  }
+
+  // Persist any new info from URL params
+  if (urlParams.get('role') || urlParams.get('name')) {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+  }
+
+  userRole = merged.role || '';
+  userName = merged.userName || '';
+  return merged;
+}
+
+function updateConnUI() {
+  const badge = document.getElementById('connBadge');
+  const text = document.getElementById('connText');
+  const pill = document.getElementById('rolePill');
+  if (isOnline) {
+    badge.classList.add('online');
+    text.textContent = 'Online' + (userName ? ' · ' + userName : '');
+  } else {
+    badge.classList.remove('online');
+    text.textContent = 'Offline (local only)';
+  }
+  if (userRole) {
+    pill.style.display = 'inline-flex';
+    pill.textContent = userRole;
+  } else {
+    pill.style.display = 'none';
+  }
+}
+
+async function initConnection() {
+  const settings = loadSettings();
+  isOnline = false;
+  sbClient = null;
+  if (settings.url && settings.key && !settings.url.startsWith('PASTE_') && !settings.key.startsWith('PASTE_') && window.supabase) {
+    try {
+      sbClient = window.supabase.createClient(settings.url, settings.key);
+      const { error } = await sbClient.from('students').select('id').limit(1);
+      if (error) throw error;
+      isOnline = true;
+      subscribeRealtime();
+    } catch (e) {
+      console.error('Supabase connection failed:', e);
+      isOnline = false;
+      sbClient = null;
+    }
+  }
+  updateConnUI();
+}
+
+function subscribeRealtime() {
+  if (!sbClient) return;
+  if (sbChannel) { sbChannel.unsubscribe(); sbChannel = null; }
+  sbChannel = sbClient.channel('students-sync')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, async () => {
+      await loadStudents();
+      renderAll();
+    })
+    .subscribe();
+}
+
+async function loadStudents() {
+  if (isOnline && sbClient) {
+    const { data, error } = await sbClient.from('students').select('*').order('id');
+    if (!error && data) {
+      students = data.map(r => ({ id: r.id, ...(r.data || {}) }));
+      // Mirror to localStorage for offline view
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
+      return;
+    }
+  }
+  const cached = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+  if (cached) {
+    students = cached;
+  } else {
+    students = buildSeed();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
+  }
+}
+
+async function upsertStudent(student) {
+  // Always mirror to local
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
+  if (isOnline && sbClient) {
+    const { id, ...rest } = student;
+    const { error } = await sbClient.from('students').upsert({
+      id, data: rest, updated_at: new Date().toISOString()
+    });
+    if (error) { alert('Save error: ' + error.message); return false; }
+  }
+  return true;
+}
+
+async function removeStudent(id) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
+  if (isOnline && sbClient) {
+    const { error } = await sbClient.from('students').delete().eq('id', id);
+    if (error) { alert('Delete error: ' + error.message); return false; }
+  }
+  return true;
+}
+
+async function seedSupabase() {
+  if (!isOnline || !sbClient) { alert('Connect ke Supabase dulu.'); return; }
+  if (!confirm('Load 46 sample students ke Supabase? Skip kalau udah ada data.')) return;
+  const seedData = buildSeed().map(s => {
+    const { id, ...rest } = s;
+    return { id, data: rest, updated_at: new Date().toISOString() };
+  });
+  const { error } = await sbClient.from('students').upsert(seedData);
+  if (error) { alert('Seed error: ' + error.message); return; }
+  await loadStudents();
+  renderAll();
+  alert('Sample data berhasil di-upload!');
+}
+
+/* ===================== SETTINGS MODAL ===================== */
+function openSettings() {
+  const s = loadSettings();
+  document.getElementById('set_role').value = s.role || '';
+  document.getElementById('set_userName').value = s.userName || '';
+  document.getElementById('set_url').value = s.url || '';
+  document.getElementById('set_key').value = s.key || '';
+  document.getElementById('seedBtn').style.display = isOnline ? 'inline-block' : 'none';
+  document.getElementById('settingsModal').classList.add('active');
+}
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('active');
+}
+async function saveSettings() {
+  const settings = {
+    role: document.getElementById('set_role').value,
+    userName: document.getElementById('set_userName').value.trim(),
+    url: document.getElementById('set_url').value.trim(),
+    key: document.getElementById('set_key').value.trim(),
+  };
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  closeSettings();
+  await initConnection();
+  await loadStudents();
+  renderAll();
+}
+
+function uid() {
+  return 's_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+}
+
+function fmt(d) {
+  if (!d) return '-';
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function inMonth(dateStr, ym) {
+  if (!dateStr || !ym) return false;
+  return dateStr.startsWith(ym);
+}
+
+/* ===================== TABS ===================== */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* ===================== ADMIN MODAL ===================== */
+function openModal(id) {
+  document.getElementById('modal').classList.add('active');
+  const setVal = (k, v) => document.getElementById(k).value = v || '';
+  if (id) {
+    const s = students.find(x => x.id === id);
+    if (!s) return;
+    document.getElementById('modalTitle').textContent = 'Edit Murid / Prospek';
+    setVal('f_id', s.id);
+    setVal('f_name', s.name);
+    setVal('f_wa', s.wa);
+    setVal('f_dateChat', s.dateChat);
+    setVal('f_status', s.status || 'hot prospect');
+    setVal('f_studentNumber', s.studentNumber);
+    setVal('f_classType', s.classType);
+    setVal('f_teacher', s.teacher);
+    setVal('f_classStatus', s.classStatus);
+    setVal('f_start', s.start);
+    setVal('f_end', s.end);
+    setVal('f_paymentType', s.paymentType);
+    setVal('f_payment', s.payment);
+    setVal('f_amount', s.amount);
+    setVal('f_notes', s.notes);
+  } else {
+    document.getElementById('modalTitle').textContent = 'Tambah Murid / Prospek';
+    ['f_id','f_name','f_wa','f_studentNumber','f_classType','f_teacher','f_start','f_end','f_amount','f_notes']
+      .forEach(k => setVal(k, ''));
+    setVal('f_status', 'hot prospect');
+    setVal('f_classStatus', '');
+    setVal('f_paymentType', '');
+    setVal('f_payment', '');
+    setVal('f_dateChat', new Date().toISOString().slice(0,10));
+  }
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('active');
+}
+async function saveStudent() {
+  const name = document.getElementById('f_name').value.trim();
+  const wa = document.getElementById('f_wa').value.trim();
+  const dateChat = document.getElementById('f_dateChat').value;
+  if (!name || !wa || !dateChat) {
+    alert('Name, WA Number, dan Date Chat wajib diisi.');
+    return;
+  }
+  const id = document.getElementById('f_id').value;
+  const data = {
+    name, wa, dateChat,
+    status: document.getElementById('f_status').value,
+    studentNumber: document.getElementById('f_studentNumber').value.trim(),
+    classType: document.getElementById('f_classType').value.trim(),
+    teacher: document.getElementById('f_teacher').value.trim(),
+    classStatus: document.getElementById('f_classStatus').value,
+    start: document.getElementById('f_start').value,
+    end: document.getElementById('f_end').value,
+    paymentType: document.getElementById('f_paymentType').value,
+    payment: document.getElementById('f_payment').value,
+    amount: document.getElementById('f_amount').value.trim(),
+    notes: document.getElementById('f_notes').value.trim(),
+  };
+  let target;
+  if (id) {
+    const idx = students.findIndex(x => x.id === id);
+    if (idx > -1) {
+      students[idx] = { ...students[idx], ...data };
+      target = students[idx];
+    }
+  } else {
+    target = {
+      id: uid(),
+      ...data,
+      placementTest:'', postTest1:'', postTest2:'', postTest3:'',
+      report:'', reenroll:''
+    };
+    students.push(target);
+  }
+  if (target) await upsertStudent(target);
+  closeModal();
+  renderAll();
+}
+async function deleteStudent(id) {
+  if (!confirm('Hapus record ini?')) return;
+  students = students.filter(x => x.id !== id);
+  await removeStudent(id);
+  renderAll();
+}
+
+/* ===================== TA MODAL ===================== */
+function openTaModal(id) {
+  const s = students.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('taModal').classList.add('active');
+  document.getElementById('ta_id').value = s.id;
+  document.getElementById('ta_name').textContent = (s.studentNumber ? `[${s.studentNumber}] ` : '') + s.name;
+  document.getElementById('ta_meta').textContent =
+    `${s.classType || '-'} • ${s.teacher || 'no teacher'} • ${fmt(s.start)} → ${fmt(s.end)}`;
+  document.getElementById('ta_placementTest').value = s.placementTest || '';
+  document.getElementById('ta_postTest1').value = s.postTest1 || '';
+  document.getElementById('ta_postTest2').value = s.postTest2 || '';
+  document.getElementById('ta_postTest3').value = s.postTest3 || '';
+  document.getElementById('ta_reenroll').value = s.reenroll || '';
+  document.getElementById('ta_report').value = s.report || '';
+}
+function closeTaModal() {
+  document.getElementById('taModal').classList.remove('active');
+}
+async function saveTa() {
+  const id = document.getElementById('ta_id').value;
+  const idx = students.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  students[idx].placementTest = document.getElementById('ta_placementTest').value;
+  students[idx].postTest1 = document.getElementById('ta_postTest1').value;
+  students[idx].postTest2 = document.getElementById('ta_postTest2').value;
+  students[idx].postTest3 = document.getElementById('ta_postTest3').value;
+  students[idx].reenroll = document.getElementById('ta_reenroll').value;
+  students[idx].report = document.getElementById('ta_report').value;
+  await upsertStudent(students[idx]);
+  closeTaModal();
+  renderAll();
+}
+
+/* ===================== BADGES ===================== */
+function statusBadge(s) {
+  if (!s) return '-';
+  const cls = {
+    'hot prospect': 'badge-hot',
+    'warm prospect': 'badge-warm',
+    'cold prospect': 'badge-cold',
+    'no': 'badge-no',
+    'goal': 'badge-goal'
+  }[s] || 'badge-no';
+  return `<span class="badge ${cls}">${s}</span>`;
+}
+function payBadge(p) {
+  if (!p) return '<span style="color:#9ca3af;">-</span>';
+  const cls = p === 'lunas' ? 'badge-lunas' : 'badge-inst';
+  return `<span class="badge ${cls}">${p}</span>`;
+}
+function reBadge(r) {
+  if (!r) return '<span style="color:#9ca3af;">-</span>';
+  const cls = r === 'reenrolled' ? 'badge-reenroll' : 'badge-noreenroll';
+  return `<span class="badge ${cls}">${r}</span>`;
+}
+function classStatusBadge(s) {
+  if (!s) return '<span style="color:#9ca3af;">-</span>';
+  const cls = s === 'Done' ? 'badge-done' : 'badge-ongoing';
+  return `<span class="badge ${cls}">${s}</span>`;
+}
+
+/* ===================== TEACHER LIST ===================== */
+function refreshTeacherFilter() {
+  const sel = document.getElementById('filterTeacher');
+  const current = sel.value;
+  const teachers = [...new Set(students.map(s => s.teacher).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Semua Teacher</option>' +
+    teachers.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+  if (teachers.includes(current)) sel.value = current;
+}
+
+/* ===================== ADMIN TABLE ===================== */
+function renderAdminTable() {
+  const q = (document.getElementById('searchInput').value || '').toLowerCase();
+  const fs = document.getElementById('filterStatus').value;
+  const fcs = document.getElementById('filterClassStatus').value;
+  const fp = document.getElementById('filterPayment').value;
+  const ft = document.getElementById('filterTeacher').value;
+  const tbody = document.getElementById('adminTbody');
+  const rows = students.filter(s => {
+    if (q) {
+      const hay = `${s.name} ${s.wa} ${s.studentNumber || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    if (fs && s.status !== fs) return false;
+    if (fcs && s.classStatus !== fcs) return false;
+    if (fp && s.payment !== fp) return false;
+    if (ft && s.teacher !== ft) return false;
+    return true;
+  }).sort((a,b) => (b.dateChat||'').localeCompare(a.dateChat||''));
+
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="11" class="empty">Tidak ada data sesuai filter.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(s => `
+    <tr>
+      <td><span class="mono">${escapeHtml(s.studentNumber || '-')}</span></td>
+      <td><strong>${escapeHtml(s.name)}</strong></td>
+      <td>${escapeHtml(s.wa)}</td>
+      <td>${escapeHtml(s.classType || '-')}</td>
+      <td>${escapeHtml(s.teacher || '-')}</td>
+      <td>${fmt(s.start)}</td>
+      <td>${fmt(s.end)}</td>
+      <td>${classStatusBadge(s.classStatus)}</td>
+      <td>${payBadge(s.payment)}</td>
+      <td>${statusBadge(s.status)}</td>
+      <td class="actions">
+        <button class="btn btn-secondary btn-sm" onclick="openModal('${s.id}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')">Hapus</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function escapeHtml(str) {
+  if (str === undefined || str === null) return '';
+  return String(str).replace(/[&<>"']/g, m => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
+}
+
+/* ===================== ADMIN DASHBOARD ===================== */
+function renderAdminDash() {
+  const ym = document.getElementById('adminMonth').value;
+  const monthly = students.filter(s => inMonth(s.dateChat, ym));
+  const startedThisMonth = students.filter(s => inMonth(s.start, ym));
+  const goalThisMonth = monthly.filter(s => s.status === 'goal');
+
+  document.getElementById('kpiGoal').textContent = goalThisMonth.length;
+  document.getElementById('kpiPvt').textContent = startedThisMonth.length;
+  document.getElementById('kpiContact').textContent = monthly.length;
+  const conv = monthly.length ? Math.round((goalThisMonth.length / monthly.length) * 100) : 0;
+  document.getElementById('kpiConv').textContent = conv + '%';
+
+  // Status breakdown
+  const statuses = ['hot prospect','warm prospect','cold prospect','no','goal'];
+  const colors = {
+    'hot prospect':'#dc2626','warm prospect':'#d97706','cold prospect':'#3730a3',
+    'no':'#6b7280','goal':'#059669'
+  };
+  document.getElementById('statusBreakdown').innerHTML = statuses.map(st => {
+    const c = monthly.filter(s => s.status === st).length;
+    return `<div class="breakdown-item">
+      <div class="count" style="color:${colors[st]}">${c}</div>
+      <div class="label">${st}</div>
+    </div>`;
+  }).join('');
+
+  // Payment breakdown (only among murid yg start di bulan ini)
+  const pays = ['lunas','instalment 1','instalment 2','instalment 3'];
+  document.getElementById('paymentBreakdown').innerHTML = pays.map(p => {
+    const c = startedThisMonth.filter(s => s.payment === p).length;
+    return `<div class="breakdown-item">
+      <div class="count" style="color: var(--primary);">${c}</div>
+      <div class="label">${p}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ===================== TA TABLE ===================== */
+function renderTaTable() {
+  const q = (document.getElementById('taSearchInput').value || '').toLowerCase();
+  const fr = document.getElementById('taFilterReenroll').value;
+  const fcs = document.getElementById('taFilterClassStatus').value;
+  const tbody = document.getElementById('taTbody');
+  const rows = students.filter(s => {
+    if (q && !s.name.toLowerCase().includes(q)) return false;
+    if (fr === '__blank') {
+      if (s.reenroll) return false;
+    } else if (fr && (s.reenroll || '') !== fr) return false;
+    if (fcs && s.classStatus !== fcs) return false;
+    // Hanya tampilkan yang sudah jadi student (goal)
+    if (s.status !== 'goal') return false;
+    return true;
+  }).sort((a,b) => (b.start || '').localeCompare(a.start || ''));
+
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="11" class="empty">Belum ada data murid.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(s => `
+    <tr>
+      <td><strong>${escapeHtml(s.name)}</strong><br><span class="mono">${escapeHtml(s.studentNumber || '')}</span></td>
+      <td>${escapeHtml(s.classType || '-')}</td>
+      <td>${escapeHtml(s.teacher || '-')}</td>
+      <td>${fmt(s.start)}</td>
+      <td>${fmt(s.end)}</td>
+      <td>${fmt(s.placementTest)}</td>
+      <td>${fmt(s.postTest1)}</td>
+      <td>${fmt(s.postTest2)}</td>
+      <td>${fmt(s.postTest3)}</td>
+      <td>${reBadge(s.reenroll)}</td>
+      <td class="actions">
+        <button class="btn btn-primary btn-sm" onclick="openTaModal('${s.id}')">Update</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+/* ===================== TA DASHBOARD ===================== */
+function renderTaDash() {
+  const ym = document.getElementById('taMonth').value;
+  // Reenroll: hitung dari murid yang end-date nya di bulan ini
+  const endingThisMonth = students.filter(s => inMonth(s.end, ym));
+  const reenrolled = endingThisMonth.filter(s => s.reenroll === 'reenrolled');
+  const noReenroll = endingThisMonth.filter(s => s.reenroll === 'no');
+
+  document.getElementById('kpiReenroll').textContent = reenrolled.length;
+  document.getElementById('kpiNoReenroll').textContent = noReenroll.length;
+  const decided = reenrolled.length + noReenroll.length;
+  const rate = decided ? Math.round((reenrolled.length / decided) * 100) : 0;
+  document.getElementById('kpiReenrollRate').textContent = rate + '%';
+
+  // Active = classStatus On going
+  const active = students.filter(s => s.classStatus === 'On going').length;
+  document.getElementById('kpiActive').textContent = active;
+
+  // Upcoming post tests dari semua post test fields
+  const now = new Date(); now.setHours(0,0,0,0);
+  const future = new Date(); future.setDate(now.getDate() + 30);
+  const upcoming = [];
+  students.forEach(s => {
+    ['placementTest','postTest1','postTest2','postTest3'].forEach(k => {
+      const v = s[k];
+      if (!v) return;
+      const dt = new Date(v);
+      if (dt >= now && dt <= future) {
+        upcoming.push({ student: s, type: k, date: v });
+      }
+    });
+  });
+  upcoming.sort((a,b) => a.date.localeCompare(b.date));
+
+  const labels = { placementTest:'Placement', postTest1:'Post Test 1', postTest2:'Post Test 2', postTest3:'Post Test 3' };
+  const tbody = document.getElementById('upcomingTbody');
+  if (upcoming.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Tidak ada test dalam 30 hari ke depan.</td></tr>`;
+  } else {
+    tbody.innerHTML = upcoming.map(u => `
+      <tr>
+        <td><strong>${escapeHtml(u.student.name)}</strong></td>
+        <td>${escapeHtml(u.student.classType || '-')}</td>
+        <td>${escapeHtml(u.student.teacher || '-')}</td>
+        <td><span class="badge badge-ongoing">${labels[u.type]}</span></td>
+        <td>${fmt(u.date)}</td>
+        <td>${fmt(u.student.end)}</td>
+      </tr>
+    `).join('');
+  }
+}
+
+/* ===================== EXPORT CSV ===================== */
+function exportCSV() {
+  if (!students.length) { alert('Belum ada data.'); return; }
+  const headers = ['Student #','Name','WA','Date Chat','Prospek Status','Program','Teacher','Start','End','Class Status','Payment Type','Payment Status','Amount','Notes','Placement Test','Post Test 1','Post Test 2','Post Test 3','Class Report','Reenroll'];
+  const rows = students.map(s => [
+    s.studentNumber, s.name, s.wa, s.dateChat, s.status, s.classType, s.teacher,
+    s.start, s.end, s.classStatus, s.paymentType, s.payment, s.amount, s.notes,
+    s.placementTest, s.postTest1, s.postTest2, s.postTest3, s.report, s.reenroll
+  ].map(v => `"${String(v || '').replace(/"/g,'""')}"`).join(','));
+  const csv = headers.join(',') + '\n' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `private_class_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ===================== INIT ===================== */
+function renderAll() {
+  refreshTeacherFilter();
+  renderAdminDash();
+  renderAdminTable();
+  renderTaDash();
+  renderTaTable();
+}
+
+// Initialize month inputs to current month
+const currentMonth = new Date().toISOString().slice(0,7);
+document.getElementById('adminMonth').value = currentMonth;
+document.getElementById('taMonth').value = currentMonth;
+document.getElementById('adminMonth').addEventListener('change', renderAdminDash);
+document.getElementById('taMonth').addEventListener('change', renderTaDash);
+
+// Close modal on backdrop click
+document.getElementById('modal').addEventListener('click', e => {
+  if (e.target.id === 'modal') closeModal();
+});
+document.getElementById('taModal').addEventListener('click', e => {
+  if (e.target.id === 'taModal') closeTaModal();
+});
+document.getElementById('settingsModal').addEventListener('click', e => {
+  if (e.target.id === 'settingsModal') closeSettings();
+});
+
+(async function bootstrap() {
+  loadSettings();
+  updateConnUI();
+  await initConnection();
+  await loadStudents();
+  renderAll();
+})();
+</script>
+</body>
+</html>
