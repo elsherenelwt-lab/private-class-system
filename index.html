@@ -312,9 +312,170 @@
     nav.tabs button { padding: 14px 12px; font-size: 13px; }
     .form-grid { grid-template-columns: 1fr; }
   }
+
+  /* Profile picker (Netflix-style) */
+  .profile-picker-overlay {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    z-index: 200;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    color: #fff;
+    overflow-y: auto;
+  }
+  .profile-picker-overlay.active { display: flex; }
+  .profile-picker-overlay h1 {
+    font-size: 30px;
+    font-weight: 300;
+    margin-bottom: 8px;
+    color: #fff;
+    text-align: center;
+    letter-spacing: -.5px;
+  }
+  .profile-picker-overlay .picker-sub {
+    font-size: 14px;
+    color: #94a3b8;
+    margin-bottom: 40px;
+    text-align: center;
+  }
+  .profile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 160px));
+    gap: 28px;
+    max-width: 900px;
+    width: 100%;
+    justify-content: center;
+  }
+  .profile-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    transition: transform .2s;
+    position: relative;
+  }
+  .profile-card:hover { transform: translateY(-4px); }
+  .profile-avatar {
+    width: 110px;
+    height: 110px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 48px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 14px;
+    border: 3px solid transparent;
+    transition: all .2s;
+    text-transform: uppercase;
+  }
+  .profile-card:hover .profile-avatar {
+    border-color: #fff;
+    box-shadow: 0 12px 30px rgba(0,0,0,.3);
+  }
+  .profile-card .name {
+    font-size: 16px;
+    font-weight: 500;
+    color: #e2e8f0;
+  }
+  .profile-card .role {
+    font-size: 11px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+  .profile-add {
+    width: 110px;
+    height: 110px;
+    border-radius: 14px;
+    border: 2px dashed rgba(255,255,255,.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 42px;
+    color: rgba(255,255,255,.4);
+    cursor: pointer;
+    transition: all .2s;
+    margin-bottom: 14px;
+    background: rgba(255,255,255,.02);
+  }
+  .profile-card:hover .profile-add {
+    border-color: #fff;
+    color: #fff;
+    background: rgba(255,255,255,.06);
+  }
+  .profile-delete-btn {
+    position: absolute;
+    top: -6px; right: -6px;
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: #dc2626;
+    color: #fff;
+    border: 2px solid #1e293b;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    font-weight: 700;
+  }
+  .profile-card:hover .profile-delete-btn { display: flex; }
+  .profile-delete-btn:hover { background: #b91c1c; transform: scale(1.1); }
+  .picker-footer {
+    margin-top: 40px;
+    text-align: center;
+    color: #64748b;
+    font-size: 12px;
+  }
 </style>
 </head>
 <body>
+
+<!-- ===================== PROFILE PICKER ===================== -->
+<div class="profile-picker-overlay" id="profilePicker">
+  <h1>Siapa yang akses?</h1>
+  <p class="picker-sub">Klik profile kamu untuk masuk ke sistem</p>
+  <div class="profile-grid" id="profileGrid"></div>
+  <div class="picker-footer">Tutory English · Private Class System</div>
+</div>
+
+<!-- ===================== ADD PROFILE MODAL ===================== -->
+<div class="modal-overlay" id="addProfileModal">
+  <div class="modal" style="max-width:440px;">
+    <h2>Tambah Profile</h2>
+    <p class="sub">Buat profile baru untuk admin/TA lain.</p>
+    <div class="form-grid">
+      <div class="full">
+        <label>Nama</label>
+        <input type="text" id="ap_name" placeholder="e.g. Sheren" />
+      </div>
+      <div class="full">
+        <label>Role</label>
+        <select id="ap_role">
+          <option value="Admin">Admin</option>
+          <option value="TA">Teaching Assistant (TA)</option>
+        </select>
+      </div>
+      <div class="full">
+        <label>Warna avatar</label>
+        <div id="colorPicker" style="display:flex; gap:10px; margin-top:6px;"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeAddProfile()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNewProfile()">Save</button>
+    </div>
+  </div>
+</div>
 
 <header>
   <div class="header-row">
@@ -322,7 +483,10 @@
       <h1>Private Class Management System<span id="rolePill" class="role-pill" style="display:none;"></span></h1>
       <p>Track prospects, students, and reenrollments</p>
     </div>
-    <div>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button class="conn-badge" onclick="switchUser()" title="Ganti profile">
+        Switch User
+      </button>
       <button id="connBadge" class="conn-badge" onclick="openSettings()">
         <span class="dot"></span>
         <span id="connText">Offline (local only)</span>
@@ -681,6 +845,11 @@
       </div>
       <div></div>
       <div class="full">
+        <label>Bukti Transfer (upload file, max 1MB)</label>
+        <input type="file" id="f_paymentProofFile" accept=".pdf,.png,.jpg,.jpeg,.webp" onchange="handlePaymentProofUpload(event)" />
+        <div id="f_paymentProofInfo" style="margin-top:8px; font-size:13px;"></div>
+      </div>
+      <div class="full">
         <label>Notes</label>
         <textarea id="f_notes" rows="2" style="width:100%;" placeholder="Catatan internal..."></textarea>
       </div>
@@ -889,6 +1058,135 @@ const EMBEDDED_SUPABASE_URL = "https://rphyhxgqaalgtlurwxff.supabase.co";
 const EMBEDDED_SUPABASE_KEY = "sb_publishable_SSNgz1JTwwunDLYWFv8R0g_u2qjGosd";
 /* ============================================================ */
 
+/* ===================== PROFILES ===================== */
+const PROFILES_KEY = 'pvtProfiles_v1';
+const CURRENT_PROFILE_KEY = 'pvtCurrentProfile_v1';
+const PROFILE_COLORS = ['#3060f3','#f59e0b','#10b981','#ec4899','#8b5cf6','#06b6d4','#ef4444','#84cc16'];
+const DEFAULT_PROFILES = [
+  { id: 'p_daniel', name: 'Daniel', role: 'Admin', color: '#3060f3' },
+  { id: 'p_helen', name: 'Helen', role: 'TA', color: '#f59e0b' },
+];
+
+function loadProfiles() {
+  const stored = JSON.parse(localStorage.getItem(PROFILES_KEY) || 'null');
+  if (!stored || !stored.length) {
+    localStorage.setItem(PROFILES_KEY, JSON.stringify(DEFAULT_PROFILES));
+    return [...DEFAULT_PROFILES];
+  }
+  return stored;
+}
+function saveProfilesList(list) {
+  localStorage.setItem(PROFILES_KEY, JSON.stringify(list));
+}
+function getCurrentProfile() {
+  const id = localStorage.getItem(CURRENT_PROFILE_KEY);
+  if (!id) return null;
+  return loadProfiles().find(p => p.id === id) || null;
+}
+function setCurrentProfile(profile) {
+  if (profile) localStorage.setItem(CURRENT_PROFILE_KEY, profile.id);
+  else localStorage.removeItem(CURRENT_PROFILE_KEY);
+}
+
+function renderProfilePicker() {
+  const profiles = loadProfiles();
+  const grid = document.getElementById('profileGrid');
+  grid.innerHTML = profiles.map(p => `
+    <div class="profile-card" onclick="selectProfile('${p.id}')">
+      <button class="profile-delete-btn" onclick="event.stopPropagation(); deleteProfile('${p.id}')" title="Hapus profile">×</button>
+      <div class="profile-avatar" style="background:${p.color};">${escapeHtml(p.name.charAt(0))}</div>
+      <div class="name">${escapeHtml(p.name)}</div>
+      <div class="role">${escapeHtml(p.role)}</div>
+    </div>
+  `).join('') + `
+    <div class="profile-card" onclick="openAddProfile()">
+      <div class="profile-add">+</div>
+      <div class="name" style="color:#94a3b8;">Tambah Profile</div>
+    </div>
+  `;
+}
+
+function showProfilePicker() {
+  renderProfilePicker();
+  document.getElementById('profilePicker').classList.add('active');
+}
+function hideProfilePicker() {
+  document.getElementById('profilePicker').classList.remove('active');
+}
+
+async function selectProfile(id) {
+  const profile = loadProfiles().find(p => p.id === id);
+  if (!profile) return;
+  setCurrentProfile(profile);
+  // Set as user role/name in settings
+  const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+  settings.role = profile.role;
+  settings.userName = profile.name;
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  hideProfilePicker();
+  // Re-init connection with new identity
+  loadSettings();
+  await initConnection();
+  await loadStudents();
+  renderAll();
+}
+
+function switchUser() {
+  setCurrentProfile(null);
+  showProfilePicker();
+}
+
+function deleteProfile(id) {
+  if (!confirm('Hapus profile ini?')) return;
+  const list = loadProfiles().filter(p => p.id !== id);
+  if (list.length === 0) {
+    alert('Minimal harus ada 1 profile.');
+    return;
+  }
+  saveProfilesList(list);
+  // If current profile deleted, clear
+  const cur = localStorage.getItem(CURRENT_PROFILE_KEY);
+  if (cur === id) setCurrentProfile(null);
+  renderProfilePicker();
+}
+
+function openAddProfile() {
+  document.getElementById('ap_name').value = '';
+  document.getElementById('ap_role').value = 'Admin';
+  // Render color picker
+  const cp = document.getElementById('colorPicker');
+  cp.dataset.selected = PROFILE_COLORS[0];
+  cp.innerHTML = PROFILE_COLORS.map((c, i) => `
+    <div onclick="pickColor('${c}', this)" data-color="${c}"
+      style="width:34px; height:34px; border-radius:8px; background:${c}; cursor:pointer;
+      border:3px solid ${i === 0 ? '#1f2937' : 'transparent'};"></div>
+  `).join('');
+  document.getElementById('addProfileModal').classList.add('active');
+}
+function pickColor(color, el) {
+  document.getElementById('colorPicker').dataset.selected = color;
+  document.querySelectorAll('#colorPicker > div').forEach(d => d.style.borderColor = 'transparent');
+  el.style.borderColor = '#1f2937';
+}
+function closeAddProfile() {
+  document.getElementById('addProfileModal').classList.remove('active');
+}
+function saveNewProfile() {
+  const name = document.getElementById('ap_name').value.trim();
+  const role = document.getElementById('ap_role').value;
+  const color = document.getElementById('colorPicker').dataset.selected || PROFILE_COLORS[0];
+  if (!name) { alert('Nama wajib diisi.'); return; }
+  const list = loadProfiles();
+  const newProfile = {
+    id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    name, role, color
+  };
+  list.push(newProfile);
+  saveProfilesList(list);
+  closeAddProfile();
+  renderProfilePicker();
+}
+
 /* ===================== DATA LAYER (SUPABASE + LOCAL FALLBACK) ===================== */
 const STORAGE_KEY = 'pvtClassData_v2';
 const SETTINGS_KEY = 'pvtClassSettings_v1';
@@ -930,6 +1228,7 @@ function migrateStudent(s) {
   if (out.postTest1Score === undefined) out.postTest1Score = '';
   if (out.postTest2Score === undefined) out.postTest2Score = '';
   if (out.postTest3Score === undefined) out.postTest3Score = '';
+  if (out.paymentProof === undefined) out.paymentProof = '';
   // Report can be string (legacy) or {name, type, data} (new)
   if (typeof out.report === 'string' && out.report) {
     // Keep as legacy string, but convert to object structure for consistency
@@ -1102,6 +1401,50 @@ function removeReport() {
     `<span style="color:#b91c1c;">⚠️ Class report akan dihapus saat Save</span>`;
 }
 
+/* ===================== PAYMENT PROOF UPLOAD ===================== */
+let pendingPaymentProof = null;
+
+function handlePaymentProofUpload(event) {
+  const file = event.target.files[0];
+  if (!file) { pendingPaymentProof = null; return; }
+  const MAX = 1024 * 1024; // 1MB
+  if (file.size > MAX) {
+    alert('File terlalu besar. Maksimal 1 MB. Untuk file lebih besar, upload ke Google Drive dan paste link di Notes.');
+    event.target.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    pendingPaymentProof = {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      data: e.target.result
+    };
+    document.getElementById('f_paymentProofInfo').innerHTML =
+      `<span style="color:var(--primary-darker);">📎 File baru ready: <strong>${escapeHtml(file.name)}</strong> (${(file.size/1024).toFixed(0)} KB) — klik Save untuk upload</span>`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function downloadPaymentProof(id) {
+  const s = students.find(x => x.id === id);
+  if (!s || !s.paymentProof) return;
+  if (typeof s.paymentProof === 'object' && s.paymentProof.data) {
+    const a = document.createElement('a');
+    a.href = s.paymentProof.data;
+    a.download = s.paymentProof.name || 'bukti-transfer';
+    a.click();
+  }
+}
+
+function removePaymentProof() {
+  if (!confirm('Hapus bukti transfer?')) return;
+  pendingPaymentProof = { __remove: true };
+  document.getElementById('f_paymentProofInfo').innerHTML =
+    `<span style="color:#b91c1c;">⚠️ Bukti transfer akan dihapus saat Save</span>`;
+}
+
 async function upsertStudent(student) {
   // Always mirror to local
   localStorage.setItem(STORAGE_KEY, JSON.stringify(students));
@@ -1209,6 +1552,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 /* ===================== ADMIN MODAL ===================== */
 function openModal(id) {
   document.getElementById('modal').classList.add('active');
+  pendingPaymentProof = null;
   const setVal = (k, v) => document.getElementById(k).value = v || '';
   if (id) {
     const s = students.find(x => x.id === id);
@@ -1230,6 +1574,16 @@ function openModal(id) {
     setVal('f_payment', s.payment);
     setVal('f_amount', s.amount);
     setVal('f_notes', s.notes);
+    document.getElementById('f_paymentProofFile').value = '';
+    const ppInfo = document.getElementById('f_paymentProofInfo');
+    if (s.paymentProof && typeof s.paymentProof === 'object' && s.paymentProof.name) {
+      ppInfo.innerHTML =
+        `<span style="color:#065f46;">📎 File saat ini: <strong>${escapeHtml(s.paymentProof.name)}</strong> (${(s.paymentProof.size/1024).toFixed(0)} KB)</span>
+         <button type="button" class="btn btn-secondary btn-sm" style="margin-left:10px;" onclick="downloadPaymentProof('${s.id}')">Download</button>
+         <button type="button" class="btn btn-danger btn-sm" style="margin-left:6px;" onclick="removePaymentProof()">Hapus</button>`;
+    } else {
+      ppInfo.innerHTML = `<span style="color:#9ca3af;">Belum ada bukti transfer.</span>`;
+    }
   } else {
     document.getElementById('modalTitle').textContent = 'Tambah Murid / Prospek';
     ['f_id','f_name','f_wa','f_programDetail','f_teacher','f_start','f_end','f_amount','f_notes']
@@ -1242,6 +1596,9 @@ function openModal(id) {
     setVal('f_dateChat', new Date().toISOString().slice(0,10));
     // Auto-generate Student Number berdasarkan nomor terakhir
     setVal('f_studentNumber', getNextStudentNumber());
+    document.getElementById('f_paymentProofFile').value = '';
+    document.getElementById('f_paymentProofInfo').innerHTML =
+      `<span style="color:#9ca3af;">Belum ada bukti transfer. Pilih file di atas untuk upload.</span>`;
   }
 }
 function closeModal() {
@@ -1282,6 +1639,7 @@ async function saveStudent() {
     target = {
       id: uid(),
       ...data,
+      paymentProof: '',
       placementTest:'', placementTestScore:'',
       postTest1:'', postTest1Score:'',
       postTest2:'', postTest2Score:'',
@@ -1290,7 +1648,16 @@ async function saveStudent() {
     };
     students.push(target);
   }
+  // Handle payment proof file
+  if (target && pendingPaymentProof) {
+    if (pendingPaymentProof.__remove) {
+      target.paymentProof = '';
+    } else {
+      target.paymentProof = pendingPaymentProof;
+    }
+  }
   if (target) await upsertStudent(target);
+  pendingPaymentProof = null;
   closeModal();
   renderAll();
 }
@@ -1708,13 +2075,43 @@ document.getElementById('taModal').addEventListener('click', e => {
 document.getElementById('settingsModal').addEventListener('click', e => {
   if (e.target.id === 'settingsModal') closeSettings();
 });
+document.getElementById('addProfileModal').addEventListener('click', e => {
+  if (e.target.id === 'addProfileModal') closeAddProfile();
+});
 
 (async function bootstrap() {
-  loadSettings();
-  updateConnUI();
-  await initConnection();
-  await loadStudents();
-  renderAll();
+  // Check URL params or current profile
+  const urlParams = new URLSearchParams(window.location.search);
+  const hasUrlIdentity = urlParams.get('role') || urlParams.get('name');
+  const currentProfile = getCurrentProfile();
+
+  if (hasUrlIdentity) {
+    // URL-based identity (from direct link) — bypass picker
+    loadSettings();
+    updateConnUI();
+    await initConnection();
+    await loadStudents();
+    renderAll();
+  } else if (currentProfile) {
+    // Already selected profile previously — use that
+    const settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    settings.role = currentProfile.role;
+    settings.userName = currentProfile.name;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    loadSettings();
+    updateConnUI();
+    await initConnection();
+    await loadStudents();
+    renderAll();
+  } else {
+    // First visit — show profile picker
+    loadSettings();
+    updateConnUI();
+    await initConnection();
+    await loadStudents();
+    renderAll();
+    showProfilePicker();
+  }
 })();
 </script>
 </body>
